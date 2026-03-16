@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      DB_HOST: db
+      DB_USER: dbuser
+      DB_PASS: dbpass
+      DB_NAME: app_db
+      SESSIONS_SECRET: shhh
+      INIT_DB: "false"
+    volumes:
+      - ./:/app
+      - ./files:/app/files  # Carpeta local "files" se mapea dentro del contenedor
+      - /app/node_modules  # Volumen anónimo para instalación de módulos
+    depends_on:
+      - db
+
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: dbuser
+      POSTGRES_PASSWORD: dbpass
+      POSTGRES_DB: app_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:

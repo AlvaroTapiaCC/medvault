@@ -1,0 +1,72 @@
+<!-- views/login.html.ejs -->
+<div id="login-container"></div>
+
+<script>
+  // Esperamos a que el DOM esté completamente cargado
+  document.addEventListener("DOMContentLoaded", () => {
+    // Desestructuramos las funciones expuestas globalmente
+    const { html, render } = window.litHtml;
+    const container = document.getElementById('login-container');
+
+    // Definición de la plantilla de login utilizando lit-html y Bootstrap
+    const loginTemplate = (message = '') => html`
+      <div class="row">
+        <div class="col-md-3">
+          <form id="login-form" class="mt-4">
+            <h2 class="mb-4">Iniciar Sesión</h2>
+            <div class="mb-3">
+              <label for="username" class="form-label">Usuario:</label>
+              <input type="text" id="username" name="username" class="form-control" required />
+            </div>
+            <div class="mb-3">
+              <label for="password" class="form-label">Contraseña:</label>
+              <input type="password" id="password" name="password" class="form-control" required />
+            </div>
+            <button type="submit" class="btn btn-primary">Ingresar</button>
+            ${message ? html`<p class="text-danger mt-2">${message}</p>` : null}
+          </form>
+        </div>
+      </div>
+    `;
+
+    // Función para renderizar la vista de login
+    function renderLogin(message = '') {
+      render(loginTemplate(message), container);
+    }
+
+    // Inicializar la vista
+    renderLogin();
+
+    // Manejo del evento submit del formulario
+    container.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.target;
+      const username = form.username.value.trim();
+      const password = form.password.value.trim();
+
+      if (!username || !password) {
+        renderLogin('Falta ingresar usuario o contraseña.');
+        return;
+      }
+
+      try {
+        const response = await axios.post('/login', { username, password }, {
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const resultData = response.data;
+        if (resultData.result) {
+          window.location.href = '/home';
+        } else {
+          renderLogin('Credenciales incorrectas. Inténtalo nuevamente.');
+        }
+      } catch (error) {
+        let errorMessage = 'Error al conectarse con el servidor.';
+        if (error.response && error.response.data && error.response.data.error) {
+          errorMessage = error.response.data.error;
+        }
+        console.error('Error al hacer login:', error);
+        renderLogin(errorMessage);
+      }
+    });
+  });
+</script>
