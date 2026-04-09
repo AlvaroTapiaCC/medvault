@@ -1,4 +1,4 @@
-<!-- views/login.html.ejs -->
+<!-- views/login.ejs -->
 <div id="login-container"></div>
 
 <script>
@@ -15,8 +15,8 @@
           <form id="login-form" class="mt-4">
             <h2 class="mb-4">Iniciar Sesión</h2>
             <div class="mb-3">
-              <label for="username" class="form-label">Usuario:</label>
-              <input type="text" id="username" name="username" class="form-control" required />
+              <label for="email" class="form-label">Email:</label>
+              <input type="email" id="email" name="email" class="form-control" required />
             </div>
             <div class="mb-3">
               <label for="password" class="form-label">Contraseña:</label>
@@ -41,16 +41,16 @@
     container.addEventListener('submit', async (event) => {
       event.preventDefault();
       const form = event.target;
-      const username = form.username.value.trim();
+      const email = form.email.value.trim();
       const password = form.password.value.trim();
 
-      if (!username || !password) {
-        renderLogin('Falta ingresar usuario o contraseña.');
+      if (!email || !password) {
+        renderLogin('Falta ingresar email o contraseña.');
         return;
       }
 
       try {
-        const response = await axios.post('/login', { username, password }, {
+        const response = await axios.post('/login', { email, password }, {
           headers: { 'Content-Type': 'application/json' }
         });
         const resultData = response.data;

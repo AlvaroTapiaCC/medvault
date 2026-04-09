@@ -66,13 +66,18 @@ fi
 
 # Inicialización de la base de datos
 
+# Configurar opciones SSL para PostgreSQL según ambiente
+if [ "$NODE_ENV" = "production" ]; then
+  SSL_OPTS="sslmode=verify-ca&sslrootcert=/app/certs/db.crt"
+else
+  SSL_OPTS="sslmode=disable"
+fi
+
 # Espera a que la base de datos esté lista (asegúrate de definir las variables DB_HOST, DB_USER, DB_NAME y DB_PASS)
 until PGPASSWORD="$DB_PASS" psql "postgresql://$DB_USER@$DB_HOST/$DB_NAME?$SSL_OPTS" -c '\q' &> /dev/null; do
   echo "Esperando la conexión a la base de datos..."
   sleep 1
 done
-
-SSL_OPTS="sslmode=verify-ca&sslrootcert=/app/certs/db.crt"
 
 # Si la variable de entorno INIT_DB está seteada a "true", se sobre-escribe el esquema public
 if [ "$INIT_DB" = "true" ]; then
@@ -84,7 +89,7 @@ if [ "$INIT_DB" = "true" ]; then
 else
   # Verificar si la base de datos está vacía (por ejemplo, sin tablas en el esquema public)
   TABLE_COUNT=$(PGPASSWORD="$DB_PASS" psql "postgresql://$DB_USER@$DB_HOST/$DB_NAME?$SSL_OPTS" -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")
-  if [ "$TABLE_zCOUNT" -eq 0 ]; then
+  if [ "$TABLE_COUNT" -eq 0 ]; then
     echo "La base de datos está vacía. Ejecutando init.sql para inicializar..."
   PGPASSWORD="$DB_PASS" psql "postgresql://$DB_USER@$DB_HOST/$DB_NAME?$SSL_OPTS" -f /app/init.sql
   else
