@@ -75,11 +75,11 @@ CREATE TABLE patient_documents (
 );
 
 -- INSERT INITIAL DATA --
-COPY users (user_id, email, full_name, role, password_plain, is_active)
+\copy users (user_id, email, full_name, role, password_plain, is_active)
 FROM '/app/files/grupo19_users.csv'
 WITH (FORMAT csv, HEADER, DELIMITER ',', NULL '', ESCAPE '"');
 
-COPY patients (patient_id, national_id, full_name, sex, birth_date, phone, address, insurance, notes)
+\copy patients (patient_id, national_id, full_name, sex, birth_date, phone, address, insurance, notes)
 FROM '/app/files/grupo19_patients.csv'
 WITH (FORMAT csv, HEADER, DELIMITER ',', NULL '', ESCAPE '"');
 
@@ -87,10 +87,10 @@ INSERT INTO clinical_files (patient_id)
 SELECT DISTINCT patient_id FROM patients
 ON CONFLICT (patient_id) DO NOTHING;
 
-COPY documents (doc_id, doc_type, doc_date, title, patient_id, filename, sha256)
+\copy documents (doc_id, doc_type, doc_date, title, patient_id, filename, sha256)
 FROM '/app/files/grupo19_documents.csv'
 WITH (FORMAT csv, HEADER, DELIMITER ',', NULL '', ESCAPE '"');
 
-COPY patient_documents (patient_id, doc_id)
+\copy patient_documents (patient_id, doc_id)
 FROM '/app/files/grupo19_manifest_patient_docs.csv'
 WITH (FORMAT csv, HEADER, DELIMITER ',', NULL '', ESCAPE '"');
