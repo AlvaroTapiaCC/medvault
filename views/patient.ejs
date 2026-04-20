@@ -1,0 +1,510 @@
+<div id="app"></div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const { html, render } = window.litHtml;
+    const appContainer = document.getElementById('app');
+
+    // Estado de la aplicación
+    const state = {
+      currentView: '<%= initialView || "patients" %>', // 'patients', 'createPatient', 'patientDetail'
+      patients: [],
+      selectedPatient: null,
+      patientRecords: [],
+      patientDocuments: [],
+      selectedRecordId: null,
+      documentsVisible: false,
+      documentsLoaded: false,
+      message: '',
+      messageType: '', // 'success', 'error', 'info'
+      formData: {
+        full_name: '',
+        national_id: '',
+        birth_date: '',
+        phone: '',
+        address: '',
+        insurance: '',
+        notes: ''
+      },
+      recordForm: {
+        visit_date: '',
+        diagnosis: '',
+        observations: ''
+      }
+    };
+
+    // Plantilla principal
+    const template = (state) => html`
+      <div class="container-fluid mt-4">
+        <!-- Header con nombre de usuario y logout -->
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <h1>MedVault - Gestión de Pacientes</h1>
+            <p class="text-muted">Usuario: <%= user.email %></p>
+          </div>
+          <div class="col-md-6 text-end">
+            <a href="/user" class="btn btn-outline-primary me-2">Inicio</a>
+            <a href="/logout" class="btn btn-danger">Cerrar Sesión</a>
+          </div>
+        </div>
+
+        <!-- Mensaje de retroalimentación -->
+        ${state.message ? html`
+          <div class="alert alert-${state.messageType || 'info'}" role="alert">
+            ${state.message}
+          </div>
+        ` : ''}
+
+        <!-- Navegación de vistas -->
+        <div class="mb-4">
+          ${state.currentView !== 'patients' ? html`
+            <button @click=${() => goToView('patients')} class="btn btn-primary me-2">
+              📋 Listar Pacientes
+            </button>
+          ` : ''}
+          <button @click=${() => goToView('createPatient')} class="btn btn-success me-2">
+            ➕ Nuevo Paciente
+          </button>
+        </div>
+
+        <!-- Contenido dinámico según vista -->
+        ${renderView(state)}
+      </div>
+    `;
+
+    // Función para renderizar la vista correspondiente
+    function renderView(state) {
+      switch(state.currentView) {
+        case 'patients':
+          return renderPatientsView(state);
+        case 'createPatient':
+          return renderCreatePatientView(state);
+        case 'patientDetail':
+          return renderPatientDetailView(state);
+        default:
+          return html`<div>Vista no encontrada</div>`;
+      }
+    }
+
+    // Vista: Listado de Pacientes
+    function renderPatientsView(state) {
+      return html`
+        <div class="card">
+          <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Listado de Pacientes</h5>
+          </div>
+          <div class="card-body">
+            ${state.patients.length > 0 ? html`
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>RUT/ID</th>
+                      <th>Fecha Nacimiento</th>
+                      <th>Teléfono</th>
+                      <th>Aseguradora</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${state.patients.map(patient => html`
+                      <tr>
+                        <td>${patient.full_name}</td>
+                        <td>${patient.national_id}</td>
+                        <td>${patient.birth_date}</td>
+                        <td>${patient.phone || '-'}</td>
+                        <td>${patient.insurance}</td>
+                        <td>
+                          <button @click=${() => viewPatientDetail(patient.patient_id)} class="btn btn-sm btn-primary">
+                            Ver Detalle
+                          </button>
+                        </td>
+                      </tr>
+                    `)}
+                  </tbody>
+                </table>
+              </div>
+            ` : html`
+              <div class="alert alert-secondary">No hay pacientes registrados.</div>
+            `}
+          </div>
+        </div>
+      `;
+    }
+
+    // Vista: Crear nuevo paciente
+    function renderCreatePatientView(state) {
+      return html`
+        <div class="card">
+          <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Registrar Nuevo Paciente</h5>
+          </div>
+          <div class="card-body">
+            <form @submit=${handleCreatePatient}>
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Nombre Completo *</label>
+                  <input type="text" class="form-control" id="full_name" required />
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">RUT/ID Nacional *</label>
+                  <input type="text" class="form-control" id="national_id" required />
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Fecha de Nacimiento *</label>
+                  <input type="date" class="form-control" id="birth_date" required />
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Teléfono</label>
+                  <input type="tel" class="form-control" id="phone" />
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-md-12 mb-3">
+                  <label class="form-label">Dirección</label>
+                  <input type="text" class="form-control" id="address" />
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Aseguradora</label>
+                  <select class="form-control" id="insurance">
+                    <option>FONASA</option>
+                    <option>ISAPRE</option>
+                    <option>PARTICULAR</option>
+                  </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Notas</label>
+                  <input type="text" class="form-control" id="notes" />
+                </div>
+              </div>
+              <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <button type="button" @click=${() => goToView('patients')} class="btn btn-secondary">
+                  Cancelar
+                </button>
+                <button type="submit" class="btn btn-success">
+                  Guardar Paciente
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    // Vista: Detalle de paciente
+    function renderPatientDetailView(state) {
+      const patient = state.selectedPatient;
+      const selectedRecord = state.patientRecords.find(record => record.record_id === state.selectedRecordId);
+
+      return html`
+        <div class="row">
+          <div class="col-md-12">
+            <div class="card">
+              <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Ficha Clínica del Paciente</h5>
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6">
+                    <p><strong>Nombre:</strong> ${patient.full_name}</p>
+                    <p><strong>RUT/ID:</strong> ${patient.national_id}</p>
+                    <p><strong>Fecha Nacimiento:</strong> ${patient.birth_date}</p>
+                    <p><strong>Aseguradora:</strong> ${patient.insurance}</p>
+                  </div>
+                  <div class="col-md-6">
+                    <p><strong>Teléfono:</strong> ${patient.phone || '-'}</p>
+                    <p><strong>Dirección:</strong> ${patient.address || '-'}</p>
+                    <p><strong>Notas:</strong> ${patient.notes || '-'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row mt-4">
+          <div class="col-md-12">
+            <div class="card">
+              <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Historial de Atenciones</h5>
+              </div>
+              <div class="card-body">
+                ${state.patientRecords.length > 0 ? html`
+                  <div class="table-responsive">
+                    <table class="table table-sm">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Doctor</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${state.patientRecords.map(record => html`
+                          <tr>
+                            <td>${record.visit_date}</td>
+                            <td>${record.doctor_name || record.doctor_id}</td>
+                            <td>
+                              <button
+                                @click=${() => toggleRecordDetail(record.record_id)}
+                                class="btn btn-sm btn-outline-secondary"
+                              >
+                                ${state.selectedRecordId === record.record_id ? 'Ocultar detalle' : 'Ver detalle'}
+                              </button>
+                            </td>
+                          </tr>
+                        `)}
+                      </tbody>
+                    </table>
+                  </div>
+                  ${selectedRecord ? html`
+                    <div class="alert alert-light border mt-3 mb-0">
+                      <h6 class="mb-2">Detalle de atención (${selectedRecord.visit_date})</h6>
+                      <p class="mb-2"><strong>Diagnóstico:</strong> ${selectedRecord.diagnosis}</p>
+                      <p class="mb-0"><strong>Observaciones:</strong> ${selectedRecord.observations || '-'}</p>
+                    </div>
+                  ` : ''}
+                ` : html`
+                  <div class="alert alert-secondary">No hay atenciones registradas.</div>
+                `}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row mt-4">
+          <div class="col-md-7">
+            <div class="card">
+              <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">Documentos Asociados</h5>
+              </div>
+              <div class="card-body">
+                <button @click=${() => toggleDocuments(patient.patient_id)} class="btn btn-outline-dark btn-sm mb-3">
+                  ${state.documentsVisible ? 'Ocultar documentos' : 'Mostrar documentos'}
+                </button>
+
+                ${state.documentsVisible ? html`
+                  ${state.patientDocuments.length > 0 ? html`
+                    <div class="table-responsive">
+                      <table class="table table-sm table-hover">
+                        <thead>
+                          <tr>
+                            <th>Título</th>
+                            <th>Archivo</th>
+                            <th>Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${state.patientDocuments.map(doc => html`
+                            <tr>
+                              <td>${doc.title}</td>
+                              <td>${doc.filename}</td>
+                              <td>
+                                <a class="btn btn-sm btn-outline-primary"
+                                   href=${`/patients/${patient.patient_id}/documents/${doc.doc_id}/download`}>
+                                  Descargar
+                                </a>
+                              </td>
+                            </tr>
+                          `)}
+                        </tbody>
+                      </table>
+                    </div>
+                  ` : html`
+                    <div class="alert alert-secondary mb-0">No hay documentos asociados a este paciente.</div>
+                  `}
+                ` : html`
+                  <p class="text-muted mb-0">Haz click en “Mostrar documentos” para desplegar los documentos asociados.</p>
+                `}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="d-grid gap-2 mt-4">
+          <button @click=${() => goToView('patients')} class="btn btn-secondary">
+            Volver al Listado
+          </button>
+        </div>
+      `;
+    }
+
+    // Función para actualizar la vista
+    function update() {
+      render(template(state), appContainer);
+    }
+
+    // Funciones de navegación
+    function goToView(view) {
+      state.currentView = view;
+      state.message = '';
+      if (view === 'patients') {
+        loadPatients();
+      }
+      update();
+    }
+
+    function viewPatientDetail(patientId) {
+      const patient = state.patients.find(p => p.patient_id === patientId);
+      state.selectedPatient = patient;
+      state.currentView = 'patientDetail';
+      state.selectedRecordId = null;
+      state.documentsVisible = false;
+      state.documentsLoaded = false;
+      state.patientDocuments = [];
+      loadPatientRecords(patientId);
+      update();
+    }
+
+    function toggleRecordDetail(recordId) {
+      state.selectedRecordId = state.selectedRecordId === recordId ? null : recordId;
+      update();
+    }
+
+    async function toggleDocuments(patientId) {
+      state.documentsVisible = !state.documentsVisible;
+
+      if (state.documentsVisible && !state.documentsLoaded) {
+        await loadPatientDocuments(patientId);
+      } else {
+        update();
+      }
+    }
+
+    // Funciones CRUD
+    async function loadPatients() {
+      try {
+        const response = await axios.get('/patients');
+        state.patients = response.data || [];
+      } catch (error) {
+        state.message = 'Error al cargar pacientes';
+        state.messageType = 'error';
+        console.error(error);
+      }
+      update();
+    }
+
+    async function loadPatientRecords(patientId) {
+      try {
+        const response = await axios.get(`/patients/${patientId}/records`);
+        state.patientRecords = response.data || [];
+      } catch (error) {
+        state.message = 'Error al cargar atenciones clínicas';
+        state.messageType = 'error';
+      }
+      update();
+    }
+
+    async function loadPatientDocuments(patientId) {
+      try {
+        const response = await axios.get(`/patients/${patientId}/documents`);
+        state.patientDocuments = response.data || [];
+        state.documentsLoaded = true;
+      } catch (error) {
+        state.message = 'Error al cargar documentos del paciente';
+        state.messageType = 'error';
+      }
+      update();
+    }
+
+    async function handleCreatePatient(e) {
+      e.preventDefault();
+      const formData = {
+        full_name: document.getElementById('full_name').value,
+        national_id: document.getElementById('national_id').value,
+        birth_date: document.getElementById('birth_date').value,
+        phone: document.getElementById('phone').value,
+        address: document.getElementById('address').value,
+        insurance: document.getElementById('insurance').value,
+        notes: document.getElementById('notes').value,
+        sex: 'X' // Por defecto
+      };
+
+      try {
+        await axios.post('/patients', formData);
+        state.message = 'Paciente creado correctamente';
+        state.messageType = 'success';
+        setTimeout(() => goToView('patients'), 1500);
+      } catch (error) {
+        state.message = 'Error al crear paciente: ' + (error.response?.data?.error || error.message);
+        state.messageType = 'error';
+      }
+      update();
+    }
+
+    async function handleCreateRecord(e) {
+      e.preventDefault();
+      const patientId = state.selectedPatient.patient_id;
+      const recordData = {
+        visit_date: document.getElementById('visit_date').value,
+        diagnosis: document.getElementById('diagnosis').value,
+        observations: document.getElementById('observations').value
+      };
+
+      try {
+        await axios.post(`/patients/${patientId}/records`, recordData);
+        state.message = 'Atención clínica registrada correctamente';
+        state.messageType = 'success';
+        loadPatientRecords(patientId);
+        // Limpiar formulario
+        document.getElementById('visit_date').value = '';
+        document.getElementById('diagnosis').value = '';
+        document.getElementById('observations').value = '';
+      } catch (error) {
+        state.message = 'Error al registrar atención: ' + (error.response?.data?.error || error.message);
+        state.messageType = 'error';
+      }
+      update();
+    }
+
+    async function handleUploadDocument(e) {
+      e.preventDefault();
+
+      const patientId = state.selectedPatient.patient_id;
+      const fileInput = document.getElementById('doc_file');
+      const selectedFile = fileInput.files[0];
+
+      if (!selectedFile) {
+        state.message = 'Debe seleccionar un archivo para subir';
+        state.messageType = 'error';
+        update();
+        return;
+      }
+
+      const payload = new FormData();
+      payload.append('title', document.getElementById('doc_title').value);
+      payload.append('doc_type', document.getElementById('doc_type').value);
+      payload.append('doc_date', document.getElementById('doc_date').value);
+      payload.append('file', selectedFile);
+
+      try {
+        await axios.post(`/patients/${patientId}/documents`, payload, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        state.message = 'Documento subido y asociado correctamente';
+        state.messageType = 'success';
+
+        document.getElementById('doc_title').value = '';
+        document.getElementById('doc_type').value = '';
+        document.getElementById('doc_date').value = '';
+        fileInput.value = '';
+
+        await loadPatientDocuments(patientId);
+      } catch (error) {
+        state.message = 'Error al subir documento: ' + (error.response?.data?.error || error.message);
+        state.messageType = 'error';
+        update();
+      }
+    }
+
+    // Cargar pacientes al iniciar si corresponde
+    if (state.currentView === 'patients') {
+      loadPatients();
+    } else {
+      update();
+    }
+  });
+</script>

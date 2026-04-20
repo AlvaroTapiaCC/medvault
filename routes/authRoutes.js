@@ -48,20 +48,43 @@ module.exports = ({ pool, requireAuth }) => {
       if (err) {
         return res.status(500).json({ error: "Error closing session" });
       }
-      return res.redirect("/login");
+      return res.redirect("/home");
     });
   });
 
   router.get("/", (req, res) => {
-    res.redirect("/login");
+    res.render("home", { title: "MedVault Home", user: req.session });
   });
 
   /**
-   * Nuevo endpoint GET /home para renderizar la vista de pruebas de la API.
+   * GET /home - Landing pública de la aplicación.
+   */
+  router.get("/home", (req, res) => {
+    res.render("home", { title: "MedVault Home", user: req.session });
+  });
+
+  /**
+   * GET /user - Vista principal de usuario autenticado.
    * Requiere autenticación.
    */
-  router.get("/home", requireAuth, (req, res) => {
-    res.render("home", { title: "DocLocker", user: req.session });
+  router.get("/user", requireAuth, (req, res) => {
+    res.redirect("/patient?view=patients");
+  });
+
+  /**
+   * GET /patient - Vista de gestión de pacientes/ficha clínica.
+   * Requiere autenticación.
+   */
+  router.get("/patient", requireAuth, (req, res) => {
+    const allowedViews = ["patients", "createPatient"];
+    const requestedView = req.query.view;
+    const initialView = allowedViews.includes(requestedView) ? requestedView : "patients";
+
+    res.render("patient", {
+      title: "Gestión de Pacientes",
+      user: req.session,
+      initialView
+    });
   });
 
   return router;

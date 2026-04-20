@@ -11,6 +11,7 @@ const FileStore = require("session-file-store")(session);
 const createAuthRoutes = require("./routes/authRoutes");
 const createFileRoutes = require("./routes/fileRoutes");
 const createPatientRoutes = require("./routes/patientRoutes");
+const createPatientDocumentRoutes = require("./routes/patientDocumentRoutes");
 
 const app = express();
 app.use(express.json());
@@ -40,6 +41,11 @@ app.use(session({
   saveUninitialized: false,
   cookie: { maxAge: 60 * 60 * 1000 } // Opcional: 1 hora de duración
 }));
+
+app.use((req, res, next) => {
+  res.locals.sessionUser = req.session;
+  next();
+});
 
 // Directorio local para almacenar archivos
 const FILES_DIR = path.join(__dirname, "files");
@@ -73,6 +79,7 @@ const requireAuth = (req, res, next) => {
 app.use(createAuthRoutes({ pool, requireAuth }));
 app.use(createFileRoutes({ upload, filesDir: FILES_DIR }));
 app.use(createPatientRoutes({ pool, requireAuth }));
+app.use(createPatientDocumentRoutes({ pool, requireAuth, upload, filesDir: FILES_DIR }));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
