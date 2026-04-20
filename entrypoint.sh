@@ -26,23 +26,6 @@ if [ "$NODE_ENV" = "production" ]; then
     exit 1
   fi
 
-  # Verifica si se pasó la variable CERTIFICATE_PRIVATE_KEY y crea el archivo de clave usando CERTIFICATE_KEY_PATH
-  if [ -n "$CERTIFICATE_PRIVATE_KEY_BASE64" ]; then
-    echo "Creando archivo de clave privada en $CERTIFICATE_PRIVATE_KEY_PATH desde Base64"
-    echo "$CERTIFICATE_PRIVATE_KEY_BASE64" | base64 -d > "$CERTIFICATE_PRIVATE_KEY_PATH"
-    
-    chmod 600 "$CERTIFICATE_PRIVATE_KEY_PATH"
-    
-    # Debug: Mostrar la clave privada
-    # cat "$CERTIFICATE_PRIVATE_KEY_PATH"
-
-    # Debug: Validar la clave privada
-    ssh-keygen -lf "$CERTIFICATE_PRIVATE_KEY_PATH"
-  else
-    echo "No se proporcionó CERTIFICATE_PRIVATE_KEY_BASE64. Asegúrate de inyectar el secreto."
-    exit 1
-  fi  
-
   # Verificar si se definieron las variables necesarias para montar sshfs
   if [ -n "$SSH_HOST" ] && [ -n "$SSH_USER" ] && [ -n "$SSHFS_REMOTE_PATH" ] && [ -n "$SSHFS_LOCAL_PATH" ]; then
     echo "Montando sistema de archivos remoto con sshfs..."
@@ -66,15 +49,8 @@ fi
 
 # Inicialización de la base de datos
 
-# Configurar opciones SSL para PostgreSQL según ambiente
-if [ "$NODE_ENV" = "production" ]; then
-  SSL_OPTS="sslmode=verify-ca&sslrootcert=/app/certs/db.crt"
-else
-  SSL_OPTS="sslmode=disable"
-fi
-
 # Espera a que la base de datos esté lista (asegúrate de definir las variables DB_HOST, DB_USER, DB_NAME y DB_PASS)
-until PGPASSWORD="$DB_PASS" psql "postgresql://$DB_USER@$DB_HOST/$DB_NAME?$SSL_OPTS" -c '\q' &> /dev/null; do
+until PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c '\q' &> /dev/null; do
   echo "Esperando la conexión a la base de datos..."
   sleep 1
 done
@@ -82,16 +58,15 @@ done
 # Si la variable de entorno INIT_DB está seteada a "true", se sobre-escribe el esquema public
 if [ "$INIT_DB" = "true" ]; then
   echo "La variable INIT_DB está seteada a 'true'. Sobre-escribiendo el esquema de la base de datos..."
-  PGPASSWORD="$DB_PASS" psql "postgresql://$DB_USER@$DB_HOST/$DB_NAME?$SSL_OPTS" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-  
+  PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
   echo "Ejecutando init.sql para inicializar la base de datos..."
-  PGPASSWORD="$DB_PASS" psql "postgresql://$DB_USER@$DB_HOST/$DB_NAME?$SSL_OPTS" -f /app/init.sql
+  PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -f /app/init.sql
 else
   # Verificar si la base de datos está vacía (por ejemplo, sin tablas en el esquema public)
-  TABLE_COUNT=$(PGPASSWORD="$DB_PASS" psql "postgresql://$DB_USER@$DB_HOST/$DB_NAME?$SSL_OPTS" -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")
+  TABLE_COUNT=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")
   if [ "$TABLE_COUNT" -eq 0 ]; then
     echo "La base de datos está vacía. Ejecutando init.sql para inicializar..."
-  PGPASSWORD="$DB_PASS" psql "postgresql://$DB_USER@$DB_HOST/$DB_NAME?$SSL_OPTS" -f /app/init.sql
+    PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -f /app/init.sql
   else
     echo "La base de datos ya tiene contenido."
   fi
