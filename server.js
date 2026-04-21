@@ -55,7 +55,7 @@ app.use(session({
   rolling: true,
   cookie: {
     httpOnly: true,
-    secure: false, // process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     ...(persistSessionCookie ? { maxAge: sessionIdleMinutes * 60 * 1000 } : {})
   }
