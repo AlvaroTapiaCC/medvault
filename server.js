@@ -40,6 +40,8 @@ if (!fs.existsSync(sessionsDir)) {
   fs.mkdirSync(sessionsDir, { recursive: true });
 }
 
+app.set('trust proxy', 1);
+
 app.use(session({
   name: sessionCookieName,
   store: new FileStore({
@@ -53,7 +55,7 @@ app.use(session({
   rolling: true,
   cookie: {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: false, // process.env.NODE_ENV === "production",
     sameSite: "lax",
     ...(persistSessionCookie ? { maxAge: sessionIdleMinutes * 60 * 1000 } : {})
   }
