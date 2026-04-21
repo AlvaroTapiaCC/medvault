@@ -1,6 +1,6 @@
 const express = require("express");
 
-module.exports = ({ pool, requireAuth }) => {
+module.exports = ({ pool, requireAuth, appBootId, sessionCookieName }) => {
   const router = express.Router();
 
   /**
@@ -23,10 +23,20 @@ module.exports = ({ pool, requireAuth }) => {
         // TODO: Aquí irá la comparación de contraseña hasheada con bcrypt
         // Por ahora, validación simple (temporal):
         if (user.password_plain === password) {
-          req.session.userId = user.user_id;
-          req.session.email = user.email;
-          req.session.role = user.role;
-          return res.json({ result: true });
+          req.session.regenerate((regenerateError) => {
+            if (regenerateError) {
+              return res.status(500).json({ result: false, error: "Unable to initialize session" });
+            }
+
+            req.session.userId = user.user_id;
+            req.session.email = user.email;
+            req.session.role = user.role;
+            req.session.appBootId = appBootId;
+
+            return res.json({ result: true });
+          });
+
+          return;
         }
       }
 
@@ -48,6 +58,7 @@ module.exports = ({ pool, requireAuth }) => {
       if (err) {
         return res.status(500).json({ error: "Error closing session" });
       }
+      res.clearCookie(sessionCookieName);
       return res.redirect("/home");
     });
   });
@@ -68,23 +79,97 @@ module.exports = ({ pool, requireAuth }) => {
    * Requiere autenticación.
    */
   router.get("/user", requireAuth, (req, res) => {
-    res.redirect("/patient?view=patients");
-  });
-
-  /**
-   * GET /patient - Vista de gestión de pacientes/ficha clínica.
-   * Requiere autenticación.
-   */
-  router.get("/patient", requireAuth, (req, res) => {
-    const allowedViews = ["patients", "createPatient"];
+    const allowedViews = req.session.role === "admin"
+      ? ["menu", "patients", "users"]
+      : ["menu", "patients"];
     const requestedView = req.query.view;
-    const initialView = allowedViews.includes(requestedView) ? requestedView : "patients";
+    const initialView = allowedViews.includes(requestedView) ? requestedView : "menu";
 
-    res.render("patient", {
-      title: "Gestión de Pacientes",
+    res.render("user", {
+      title: "Inicio de Usuario",
       user: req.session,
       initialView
     });
+  });
+
+  /**
+   * GET /user/new - Vista para registrar nuevo usuario (solo admin).
+   * Requiere autenticación.
+   */
+  router.get("/user/new", requireAuth, (req, res) => {
+    if (req.session.role !== "admin") {
+      return res.redirect("/user");
+    }
+
+    res.render("user-new", {
+      title: "Registrar Usuario",
+      user: req.session
+    });
+  });
+
+  /**
+   * GET /patient/new - Vista para registrar nuevo paciente.
+   * Requiere autenticación.
+   */
+  router.get("/patient/new", requireAuth, (req, res) => {
+    res.render("patient-new", {
+      title: "Registrar Paciente",
+      user: req.session
+    });
+  });
+
+  /**
+   * GET /patient/:id/new-record - Vista para registrar nueva atención.
+   * Requiere autenticación.
+   */
+  router.get("/patient/:id/new-record", requireAuth, (req, res) => {
+    res.render("patient-record-new", {
+      title: "Nueva Atención",
+      user: req.session,
+      patientId: req.params.id
+    });
+  });
+
+  /**
+   * GET /patient/:id/new-document - Vista para subir documento asociado.
+   * Requiere autenticación.
+   */
+  router.get("/patient/:id/new-document", requireAuth, (req, res) => {
+    res.render("patient-document-new", {
+      title: "Subir Documento",
+      user: req.session,
+      patientId: req.params.id
+    });
+  });
+
+  /**
+   * GET /patient/:id/document/:docId - Vista de contenido de documento.
+   * Requiere autenticación.
+   */
+  router.get("/patient/:id/document/:docId", requireAuth, (req, res) => {
+    res.render("document", {
+      title: "Contenido de Documento",
+      user: req.session,
+      patientId: req.params.id,
+      docId: req.params.docId
+    });
+  });
+
+  /**
+   * GET /patient/:id - Vista de detalle de un paciente.
+   * Requiere autenticación.
+   */
+  router.get("/patient/:id", requireAuth, (req, res) => {
+    res.render("patient", {
+      title: "Detalle de Paciente",
+      user: req.session,
+      patientId: req.params.id
+    });
+  });
+
+  // Compatibilidad: ruta antigua de patient sin id
+  router.get("/patient", requireAuth, (req, res) => {
+    res.redirect("/user?view=patients");
   });
 
   return router;

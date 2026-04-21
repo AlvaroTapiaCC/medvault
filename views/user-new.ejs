@@ -1,0 +1,95 @@
+<div class="container-fluid mt-4">
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <h1>Registrar Nuevo Usuario</h1>
+      <p class="text-muted">Administrador: <%= user.email %></p>
+    </div>
+    <div class="col-md-6 text-end">
+      <a href="/user?view=users" class="btn btn-outline-primary me-2">Volver a usuarios</a>
+      <a href="/logout" class="btn btn-danger">Cerrar Sesión</a>
+    </div>
+  </div>
+
+  <div id="form-message"></div>
+
+  <div class="card">
+    <div class="card-header bg-dark text-white">
+      <h5 class="mb-0">Formulario de Usuario</h5>
+    </div>
+    <div class="card-body">
+      <form id="new-user-form">
+        <div class="mb-3">
+          <label class="form-label">Nombre completo *</label>
+          <input type="text" class="form-control" id="full_name" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Email *</label>
+          <input type="email" class="form-control" id="email" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Contraseña *</label>
+          <input type="text" class="form-control" id="password_plain" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Rol *</label>
+          <select class="form-control" id="role" required>
+            <option value="">Selecciona un rol...</option>
+            <option value="doctor">doctor</option>
+            <option value="staff">staff</option>
+            <option value="nurse">nurse</option>
+          </select>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="is_active" checked>
+          <label class="form-check-label" for="is_active">
+            Usuario activo
+          </label>
+        </div>
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+          <a href="/user?view=users" class="btn btn-secondary">Cancelar</a>
+          <button type="submit" class="btn btn-dark">Guardar Usuario</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('new-user-form');
+    const message = document.getElementById('form-message');
+    const apiClient = window.axios;
+
+    function showMessage(text, type = 'info') {
+      message.innerHTML = `<div class="alert alert-${type}" role="alert">${text}</div>`;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (!apiClient) {
+        showMessage('Error de carga del cliente HTTP (axios). Recarga la página e intenta nuevamente.', 'danger');
+        return;
+      }
+
+      const payload = {
+        full_name: document.getElementById('full_name').value,
+        email: document.getElementById('email').value,
+        password_plain: document.getElementById('password_plain').value,
+        role: document.getElementById('role').value,
+        is_active: document.getElementById('is_active').checked
+      };
+
+      try {
+        await apiClient.post('/users', payload);
+        showMessage('Usuario creado correctamente', 'success');
+        setTimeout(() => {
+          window.location.href = '/user?view=users';
+        }, 600);
+      } catch (error) {
+        showMessage('Error al crear usuario: ' + (error.response?.data?.error || error.message), 'danger');
+      }
+    });
+  });
+</script>

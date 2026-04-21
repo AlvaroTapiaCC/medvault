@@ -1,0 +1,106 @@
+<div class="container-fluid mt-4">
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <h1>Registrar Nuevo Paciente</h1>
+      <p class="text-muted">Usuario: <%= user.email %></p>
+    </div>
+    <div class="col-md-6 text-end">
+      <a href="/user" class="btn btn-outline-primary me-2">Inicio</a>
+      <a href="/logout" class="btn btn-danger">Cerrar Sesión</a>
+    </div>
+  </div>
+
+  <div id="form-message"></div>
+
+  <div class="card">
+    <div class="card-header bg-success text-white">
+      <h5 class="mb-0">Formulario de Nuevo Paciente</h5>
+    </div>
+    <div class="card-body">
+      <form id="new-patient-form">
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Nombre Completo *</label>
+            <input type="text" class="form-control" id="full_name" required />
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">RUT/ID Nacional *</label>
+            <input type="text" class="form-control" id="national_id" required />
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Fecha de Nacimiento *</label>
+            <input type="date" class="form-control" id="birth_date" required />
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Teléfono</label>
+            <input type="tel" class="form-control" id="phone" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-12 mb-3">
+            <label class="form-label">Dirección</label>
+            <input type="text" class="form-control" id="address" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Aseguradora</label>
+            <select class="form-control" id="insurance">
+              <option>FONASA</option>
+              <option>ISAPRE</option>
+              <option>PARTICULAR</option>
+            </select>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Notas</label>
+            <input type="text" class="form-control" id="notes" />
+          </div>
+        </div>
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+          <a href="/user" class="btn btn-secondary">Cancelar</a>
+          <button type="submit" class="btn btn-success">Guardar Paciente</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById('new-patient-form');
+  const message = document.getElementById('form-message');
+
+  function showMessage(text, type = 'info') {
+    message.innerHTML = `<div class="alert alert-${type}" role="alert">${text}</div>`;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const payload = {
+      full_name: document.getElementById('full_name').value,
+      national_id: document.getElementById('national_id').value,
+      birth_date: document.getElementById('birth_date').value,
+      phone: document.getElementById('phone').value,
+      address: document.getElementById('address').value,
+      insurance: document.getElementById('insurance').value,
+      notes: document.getElementById('notes').value,
+      sex: 'X'
+    };
+
+    try {
+      const response = await axios.post('/patients', payload);
+      const newPatient = response.data?.patient;
+      showMessage('Paciente creado correctamente', 'success');
+
+      if (newPatient?.patient_id) {
+        setTimeout(() => {
+          window.location.href = `/patient/${newPatient.patient_id}`;
+        }, 600);
+      }
+    } catch (error) {
+      showMessage('Error al crear paciente: ' + (error.response?.data?.error || error.message), 'danger');
+    }
+  });
+</script>

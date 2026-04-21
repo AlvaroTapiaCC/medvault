@@ -55,6 +55,9 @@
         });
         const resultData = response.data;
         if (resultData.result) {
+          try {
+            sessionStorage.setItem('medvault.tab.session.active', '1');
+          } catch (_) {}
           window.location.href = '/user';
         } else {
           renderLogin('Credenciales incorrectas. Inténtalo nuevamente.');

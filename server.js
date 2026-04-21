@@ -16,6 +16,12 @@ const createPatientDocumentRoutes = require("./routes/patientDocumentRoutes");
 const app = express();
 app.use(express.json());
 
+const sessionCookieName = process.env.SESSION_COOKIE_NAME || "medvault.sid";
+const sessionIdleMinutes = Number(process.env.SESSION_IDLE_MINUTES || 60);
+const persistSessionCookie = process.env.SESSION_PERSIST_COOKIE === "true";
+const invalidateSessionsOnRestart = process.env.SESSION_INVALIDATE_ON_RESTART !== "false";
+const appBootId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
 // Configurar el motor de vistas EJS
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
@@ -35,11 +41,22 @@ if (!fs.existsSync(sessionsDir)) {
 }
 
 app.use(session({
-  store: new FileStore({ path: sessionsDir }),
-  secret: process.env.SESSIONS_SECRET, // Reemplaza con una cadena secreta segura en producción
+  name: sessionCookieName,
+  store: new FileStore({
+    path: sessionsDir,
+    ttl: sessionIdleMinutes * 60,
+    reapInterval: 60 * 10
+  }),
+  secret: process.env.SESSIONS_SECRET || "dev-insecure-session-secret-change-me",
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 60 * 60 * 1000 } // Opcional: 1 hora de duración
+  rolling: true,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    ...(persistSessionCookie ? { maxAge: sessionIdleMinutes * 60 * 1000 } : {})
+  }
 }));
 
 app.use((req, res, next) => {
@@ -70,13 +87,22 @@ const pool = new Pool({
  */
 const requireAuth = (req, res, next) => {
   if (!req.session.userId) {
-    return res.redirect("/login");
+    return res.redirect("/home");
   }
+
+  if (invalidateSessionsOnRestart && req.session.appBootId !== appBootId) {
+    req.session.destroy(() => {
+      res.clearCookie(sessionCookieName);
+      return res.redirect("/home");
+    });
+    return;
+  }
+
   next();
 };
 
 // Montar rutas modulares
-app.use(createAuthRoutes({ pool, requireAuth }));
+app.use(createAuthRoutes({ pool, requireAuth, appBootId, sessionCookieName }));
 app.use(createFileRoutes({ upload, filesDir: FILES_DIR }));
 app.use(createPatientRoutes({ pool, requireAuth }));
 app.use(createPatientDocumentRoutes({ pool, requireAuth, upload, filesDir: FILES_DIR }));

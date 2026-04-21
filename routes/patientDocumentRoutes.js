@@ -149,5 +149,45 @@ module.exports = ({ pool, requireAuth, upload, filesDir }) => {
     }
   });
 
+  /**
+   * GET /patients/:id/documents/:docId/content - Obtener contenido de un documento asociado
+   * Requiere autenticación.
+   */
+  router.get("/patients/:id/documents/:docId/content", requireAuth, async (req, res) => {
+    const patientId = req.params.id;
+    const docId = req.params.docId;
+
+    try {
+      const result = await pool.query(
+        `SELECT d.doc_id, d.title, d.doc_type, d.doc_date, d.filename
+         FROM documents d
+         INNER JOIN patient_documents pd ON pd.doc_id = d.doc_id
+         WHERE d.doc_id = $1 AND pd.patient_id = $2`,
+        [docId, patientId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Documento no encontrado para el paciente" });
+      }
+
+      const document = result.rows[0];
+      const filename = path.basename(document.filename);
+      const filePath = path.join(documentsDir, filename);
+
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "Archivo no encontrado en almacenamiento" });
+      }
+
+      const content = fs.readFileSync(filePath, "utf8");
+
+      return res.json({
+        ...document,
+        content
+      });
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
   return router;
 };

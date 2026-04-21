@@ -1,27 +1,286 @@
-<div class="container mt-5">
-  <div class="row justify-content-center">
-    <div class="col-lg-8">
-      <div class="card shadow-sm">
-        <div class="card-body p-4">
-          <h1 class="h3 mb-3">MedVault</h1>
-          <p class="text-muted mb-4">Bienvenido, <strong><%= user.email %></strong>. Selecciona una opción para continuar.</p>
+<div id="app"></div>
 
-          <div class="list-group mb-4">
-            <a href="/patient?view=patients" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-              <span>📋 Listar pacientes</span>
-              <span class="text-muted">Ver y gestionar fichas</span>
-            </a>
-            <a href="/patient?view=createPatient" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-              <span>➕ Registrar nuevo paciente</span>
-              <span class="text-muted">Crear ficha clínica</span>
-            </a>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const { html, render } = window.litHtml;
+    const appContainer = document.getElementById('app');
+    const isAdminUser = '<%= user.role %>' === 'admin';
+
+    const state = {
+      currentView: '<%= initialView || "menu" %>', // menu, patients, users
+      patients: [],
+      users: [],
+      selectedUserId: null,
+      message: '',
+      messageType: ''
+    };
+
+    function formatDate(value) {
+      if (!value) return '-';
+      return String(value).split('T')[0];
+    }
+
+    const template = (state) => html`
+      <div class="container-fluid mt-4">
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <h1>MedVault - Inicio de Usuario</h1>
+            <p class="text-muted">Usuario: <%= user.email %></p>
           </div>
-
-          <div class="d-flex justify-content-end">
-            <a href="/logout" class="btn btn-outline-danger">Cerrar sesión</a>
+          <div class="col-md-6 text-end">
+            <a href="/logout" class="btn btn-danger">Cerrar Sesión</a>
           </div>
         </div>
+
+        ${state.message ? html`
+          <div class="alert alert-${state.messageType || 'info'}" role="alert">
+            ${state.message}
+          </div>
+        ` : ''}
+
+        <div class="mb-4">
+          ${state.currentView !== 'menu' ? html`
+            <button @click=${() => goToView('menu')} class="btn btn-outline-primary me-2">
+              ← Volver al inicio
+            </button>
+          ` : ''}
+        </div>
+
+        ${renderView(state)}
       </div>
-    </div>
-  </div>
-</div>
+    `;
+
+    function renderView(state) {
+      switch(state.currentView) {
+        case 'menu':
+          return renderMenuView();
+        case 'patients':
+          return renderPatientsView(state);
+        case 'users':
+          return isAdminUser
+            ? renderUsersView(state)
+            : html`<div class="alert alert-warning">No tienes permisos para gestionar usuarios.</div>`;
+        default:
+          return html`<div>Vista no encontrada</div>`;
+      }
+    }
+
+    function renderMenuView() {
+      return html`
+        <div class="card shadow-sm">
+          <div class="card-body p-4">
+            <h2 class="h5 mb-3">¿Qué deseas hacer?</h2>
+            <div class="list-group">
+              <button @click=${() => goToView('patients')} class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <span>📋 Listar pacientes</span>
+                <span class="text-muted">Ver fichas registradas</span>
+              </button>
+              <a href="/patient/new" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <span>➕ Nuevo paciente</span>
+                <span class="text-muted">Registrar ficha clínica</span>
+              </a>
+              ${isAdminUser ? html`
+                <button @click=${() => goToView('users')} class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                  <span>👤 Gestionar usuarios</span>
+                  <span class="text-muted">Listar, crear y eliminar usuarios</span>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderUsersView(state) {
+      return html`
+        <div class="card">
+          <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Gestión de Usuarios</h5>
+            <a href="/user/new" class="btn btn-sm btn-light">➕ Nuevo usuario</a>
+          </div>
+          <div class="card-body">
+            ${state.users.length > 0 ? html`
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Email</th>
+                      <th>Rol</th>
+                      <th>Activo</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${state.users.map((user) => html`
+                      <tr>
+                        <td>${user.full_name}</td>
+                        <td>${user.email}</td>
+                        <td>${user.role}</td>
+                        <td>${Number(user.is_active) === 1 ? 'Sí' : 'No'}</td>
+                        <td class="d-flex gap-1 flex-wrap">
+                          <button @click=${() => toggleUserDetail(user.user_id)} class="btn btn-sm btn-outline-primary">
+                            ${state.selectedUserId === user.user_id ? 'Ocultar detalle' : 'Ver detalle'}
+                          </button>
+                          <button
+                            @click=${() => deleteUser(user)}
+                            class="btn btn-sm btn-outline-danger"
+                            ?disabled=${user.role === 'admin' || user.user_id === '<%= user.userId %>'}
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                      ${state.selectedUserId === user.user_id ? html`
+                        <tr class="table-light">
+                          <td colspan="5">
+                            <div class="border rounded p-3">
+                              <h6 class="mb-2">Detalle de usuario</h6>
+                              <p class="mb-1"><strong>ID:</strong> ${user.user_id}</p>
+                              <p class="mb-1"><strong>Nombre:</strong> ${user.full_name}</p>
+                              <p class="mb-1"><strong>Email:</strong> ${user.email}</p>
+                              <p class="mb-1"><strong>Rol:</strong> ${user.role}</p>
+                              <p class="mb-0"><strong>Activo:</strong> ${Number(user.is_active) === 1 ? 'Sí' : 'No'}</p>
+                            </div>
+                          </td>
+                        </tr>
+                      ` : ''}
+                    `)}
+                  </tbody>
+                </table>
+              </div>
+            ` : html`
+              <div class="alert alert-secondary">No hay usuarios registrados.</div>
+            `}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderPatientsView(state) {
+      return html`
+        <div class="card">
+          <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Listado de Pacientes</h5>
+          </div>
+          <div class="card-body">
+            ${state.patients.length > 0 ? html`
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>RUT/ID</th>
+                      <th>Fecha Nacimiento</th>
+                      <th>Teléfono</th>
+                      <th>Aseguradora</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${state.patients.map(patient => html`
+                      <tr>
+                        <td>${patient.full_name}</td>
+                        <td>${patient.national_id}</td>
+                        <td>${formatDate(patient.birth_date)}</td>
+                        <td>${patient.phone || '-'}</td>
+                        <td>${patient.insurance || '-'}</td>
+                        <td>
+                          <a href=${`/patient/${patient.patient_id}`} class="btn btn-sm btn-primary">Ver detalle</a>
+                        </td>
+                      </tr>
+                    `)}
+                  </tbody>
+                </table>
+              </div>
+            ` : html`
+              <div class="alert alert-secondary">No hay pacientes registrados.</div>
+            `}
+          </div>
+        </div>
+      `;
+    }
+
+    function update() {
+      render(template(state), appContainer);
+    }
+
+    async function goToView(view) {
+      state.currentView = view;
+      state.selectedUserId = null;
+      state.message = '';
+
+      if (view === 'patients') {
+        await loadPatients();
+      } else if (view === 'users') {
+        if (!isAdminUser) {
+          state.currentView = 'menu';
+          state.message = 'No tienes permisos para gestionar usuarios';
+          state.messageType = 'warning';
+          update();
+          return;
+        }
+        await loadUsers();
+      } else {
+        update();
+      }
+    }
+
+    async function loadPatients() {
+      try {
+        const response = await axios.get('/patients');
+        state.patients = response.data || [];
+      } catch (error) {
+        state.message = 'Error al cargar pacientes';
+        state.messageType = 'danger';
+      }
+      update();
+    }
+
+    function toggleUserDetail(userId) {
+      state.selectedUserId = state.selectedUserId === userId ? null : userId;
+      update();
+    }
+
+    async function loadUsers() {
+      try {
+        const response = await axios.get('/users');
+        state.users = response.data || [];
+      } catch (error) {
+        state.message = 'Error al cargar usuarios';
+        state.messageType = 'danger';
+      }
+      update();
+    }
+
+    async function deleteUser(user) {
+      const confirmed = window.confirm(`¿Seguro que deseas eliminar a ${user.full_name}? Esta acción no se puede deshacer.`);
+      if (!confirmed) return;
+
+      try {
+        await axios.delete(`/users/${user.user_id}`);
+        state.message = 'Usuario eliminado correctamente';
+        state.messageType = 'success';
+        state.selectedUserId = null;
+        await loadUsers();
+      } catch (error) {
+        state.message = 'Error al eliminar usuario: ' + (error.response?.data?.error || error.message);
+        state.messageType = 'danger';
+        update();
+      }
+    }
+
+    if (state.currentView === 'patients') {
+      loadPatients();
+    } else if (state.currentView === 'users') {
+      if (isAdminUser) {
+        loadUsers();
+      } else {
+        state.currentView = 'menu';
+        update();
+      }
+    } else {
+      update();
+    }
+  });
+</script>

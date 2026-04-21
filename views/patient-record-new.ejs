@@ -1,0 +1,150 @@
+<div class="container-fluid mt-4">
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <h1>Registrar Nueva Atención</h1>
+      <p class="text-muted">Paciente: <strong><%= patientId %></strong> | Usuario: <%= user.email %></p>
+    </div>
+    <div class="col-md-6 text-end">
+      <a href="/patient/<%= patientId %>" class="btn btn-outline-primary me-2">Volver al paciente</a>
+      <a href="/logout" class="btn btn-danger">Cerrar Sesión</a>
+    </div>
+  </div>
+
+  <div id="form-message"></div>
+
+  <div class="card">
+    <div class="card-header bg-warning text-dark">
+      <h5 class="mb-0">Formulario de Atención Clínica</h5>
+    </div>
+    <div class="card-body">
+      <form id="new-record-form">
+        <div class="mb-3">
+          <label class="form-label">Fecha de Atención *</label>
+          <input type="date" class="form-control" id="visit_date" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Diagnóstico *</label>
+          <textarea class="form-control" id="diagnosis" rows="3" required></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Observaciones</label>
+          <textarea class="form-control" id="observations" rows="3"></textarea>
+        </div>
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+          <a href="/patient/<%= patientId %>" class="btn btn-secondary">Cancelar</a>
+          <button type="submit" class="btn btn-warning">Guardar Atención</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('new-record-form');
+    const message = document.getElementById('form-message');
+    const patientId = '<%= patientId %>';
+    const currentUserRole = '<%= user.role %>';
+    const isDoctorUser = currentUserRole === 'doctor';
+    const apiClient = window.axios;
+
+    let doctors = [];
+
+    function doctorFieldTemplate() {
+      if (isDoctorUser) {
+        return `
+          <div class="mb-3" id="doctor-field-wrapper">
+            <label class="form-label">Doctor asociado</label>
+            <input type="text" class="form-control" value="<%= user.email %>" disabled />
+          </div>
+        `;
+      }
+
+      return `
+        <div class="mb-3" id="doctor-field-wrapper">
+          <label class="form-label">Doctor que atendió *</label>
+          <select class="form-control" id="doctor_id" required>
+            <option value="">Selecciona un doctor...</option>
+            ${doctors.map((doctor) => `<option value="${doctor.user_id}">${doctor.full_name} (${doctor.email})</option>`).join('')}
+          </select>
+        </div>
+      `;
+    }
+
+    function ensureDoctorField() {
+      if (document.getElementById('doctor-field-wrapper')) return;
+
+      const diagnosisField = document.getElementById('diagnosis').closest('.mb-3');
+      diagnosisField.insertAdjacentHTML('beforebegin', doctorFieldTemplate());
+    }
+
+    function showMessage(text, type = 'info') {
+      message.innerHTML = `<div class="alert alert-${type}" role="alert">${text}</div>`;
+    }
+
+    async function loadDoctorsIfNeeded() {
+      if (!apiClient) {
+        showMessage('Error de carga del cliente HTTP (axios). Recarga la página e intenta nuevamente.', 'danger');
+        return;
+      }
+
+      if (isDoctorUser) {
+        ensureDoctorField();
+        return;
+      }
+
+      try {
+        const response = await apiClient.get('/users/doctors');
+        doctors = response.data || [];
+
+        if (doctors.length === 0) {
+          showMessage('No hay doctores activos disponibles para asociar la atención', 'warning');
+        }
+
+        ensureDoctorField();
+      } catch (error) {
+        showMessage('Error al cargar doctores: ' + (error.response?.data?.error || error.message), 'danger');
+        ensureDoctorField();
+      }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (!apiClient) {
+        showMessage('Error de carga del cliente HTTP (axios). Recarga la página e intenta nuevamente.', 'danger');
+        return;
+      }
+
+      const payload = {
+        visit_date: document.getElementById('visit_date').value,
+        diagnosis: document.getElementById('diagnosis').value,
+        observations: document.getElementById('observations').value
+      };
+
+      if (!isDoctorUser) {
+        const doctorSelect = document.getElementById('doctor_id');
+        const selectedDoctorId = doctorSelect ? doctorSelect.value : '';
+
+        if (!selectedDoctorId) {
+          showMessage('Debe seleccionar el doctor que atendió', 'danger');
+          return;
+        }
+
+        payload.doctor_id = selectedDoctorId;
+      }
+
+      try {
+        await apiClient.post(`/patients/${patientId}/records`, payload);
+        showMessage('Atención registrada correctamente', 'success');
+        setTimeout(() => {
+          window.location.href = `/patient/${patientId}`;
+        }, 600);
+      } catch (error) {
+        showMessage('Error al registrar atención: ' + (error.response?.data?.error || error.message), 'danger');
+      }
+    });
+
+    loadDoctorsIfNeeded();
+  });
+</script>

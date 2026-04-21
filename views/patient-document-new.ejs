@@ -1,0 +1,94 @@
+<div class="container-fluid mt-4">
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <h1>Subir Documento Clínico</h1>
+      <p class="text-muted">Paciente: <strong><%= patientId %></strong> | Usuario: <%= user.email %></p>
+    </div>
+    <div class="col-md-6 text-end">
+      <a href="/patient/<%= patientId %>" class="btn btn-outline-primary me-2">Volver al paciente</a>
+      <a href="/logout" class="btn btn-danger">Cerrar Sesión</a>
+    </div>
+  </div>
+
+  <div id="form-message"></div>
+
+  <div class="card">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0">Formulario de Documento</h5>
+    </div>
+    <div class="card-body">
+      <form id="new-document-form" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label class="form-label">Título *</label>
+          <input type="text" class="form-control" id="doc_title" required />
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Tipo de documento *</label>
+            <select class="form-control" id="doc_type" required>
+              <option value="">Selecciona...</option>
+              <option value="imaging">imaging</option>
+              <option value="discharge">discharge</option>
+              <option value="referral">referral</option>
+              <option value="prescription">prescription</option>
+              <option value="lab">lab</option>
+            </select>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Fecha del documento *</label>
+            <input type="date" class="form-control" id="doc_date" required />
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Archivo *</label>
+          <input type="file" class="form-control" id="doc_file" required />
+        </div>
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+          <a href="/patient/<%= patientId %>" class="btn btn-secondary">Cancelar</a>
+          <button type="submit" class="btn btn-primary">Subir Documento</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById('new-document-form');
+  const message = document.getElementById('form-message');
+  const patientId = '<%= patientId %>';
+  const fileInput = document.getElementById('doc_file');
+
+  function showMessage(text, type = 'info') {
+    message.innerHTML = `<div class="alert alert-${type}" role="alert">${text}</div>`;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const selectedFile = fileInput.files[0];
+
+    if (!selectedFile) {
+      showMessage('Debe seleccionar un archivo', 'danger');
+      return;
+    }
+
+    const payload = new FormData();
+    payload.append('title', document.getElementById('doc_title').value);
+    payload.append('doc_type', document.getElementById('doc_type').value);
+    payload.append('doc_date', document.getElementById('doc_date').value);
+    payload.append('file', selectedFile);
+
+    try {
+      await axios.post(`/patients/${patientId}/documents`, payload, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      showMessage('Documento subido y asociado correctamente', 'success');
+      setTimeout(() => {
+        window.location.href = `/patient/${patientId}`;
+      }, 600);
+    } catch (error) {
+      showMessage('Error al subir documento: ' + (error.response?.data?.error || error.message), 'danger');
+    }
+  });
+</script>

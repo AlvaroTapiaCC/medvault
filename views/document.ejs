@@ -1,0 +1,92 @@
+<div id="app"></div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const { html, render } = window.litHtml;
+    const appContainer = document.getElementById("app");
+
+    const patientId = "<%= patientId %>";
+    const docId = "<%= docId %>";
+
+    const state = {
+      loading: true,
+      error: "",
+      document: null
+    };
+
+    function formatDate(value) {
+      if (!value) return "-";
+      return String(value).split("T")[0];
+    }
+
+    function update() {
+      render(template(state), appContainer);
+    }
+
+    const template = (state) => html`
+      <div class="container-fluid mt-4">
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <h1>Contenido de Documento Clínico</h1>
+            <p class="text-muted">Paciente: <strong>${patientId}</strong> | Usuario: <%= user.email %></p>
+          </div>
+          <div class="col-md-6 text-end">
+            <a href=${`/patient/${patientId}`} class="btn btn-outline-primary me-2">Volver al paciente</a>
+            <a href="/logout" class="btn btn-danger">Cerrar Sesión</a>
+          </div>
+        </div>
+
+        ${state.loading ? html`
+          <div class="alert alert-secondary">Cargando documento...</div>
+        ` : ""}
+
+        ${state.error ? html`
+          <div class="alert alert-danger">${state.error}</div>
+        ` : ""}
+
+        ${state.document ? html`
+          <div class="card mb-4">
+            <div class="card-header bg-dark text-white">
+              <h5 class="mb-0">${state.document.title}</h5>
+            </div>
+            <div class="card-body">
+              <p class="mb-1"><strong>ID:</strong> ${state.document.doc_id}</p>
+              <p class="mb-1"><strong>Tipo:</strong> ${state.document.doc_type}</p>
+              <p class="mb-1"><strong>Fecha:</strong> ${formatDate(state.document.doc_date)}</p>
+              <p class="mb-0"><strong>Archivo:</strong> ${state.document.filename}</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header bg-light">
+              <h6 class="mb-0">Texto del documento</h6>
+            </div>
+            <div class="card-body">
+              <pre class="mb-0" style="white-space: pre-wrap; word-break: break-word;">${state.document.content || "(Documento sin contenido textual)"}</pre>
+            </div>
+          </div>
+        ` : ""}
+      </div>
+    `;
+
+    async function loadDocumentContent() {
+      state.loading = true;
+      state.error = "";
+      state.document = null;
+      update();
+
+      try {
+        const response = await axios.get(`/patients/${patientId}/documents/${docId}/content`);
+        state.document = response.data;
+      } catch (error) {
+        state.error = error.response?.data?.error || "No se pudo cargar el contenido del documento";
+      } finally {
+        state.loading = false;
+        update();
+      }
+    }
+
+    update();
+    loadDocumentContent();
+  });
+</script>
