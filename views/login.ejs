@@ -16,7 +16,7 @@
             <h2 class="mb-4">Iniciar Sesión</h2>
             <div class="mb-3">
               <label for="email" class="form-label">Email:</label>
-              <input type="email" id="email" name="email" class="form-control" required />
+              <input type="text" id="email" name="email" class="form-control" inputmode="email" autocomplete="username" autocapitalize="off" spellcheck="false" required />
             </div>
             <div class="mb-3">
               <label for="password" class="form-label">Contraseña:</label>
@@ -41,7 +41,7 @@
     container.addEventListener('submit', async (event) => {
       event.preventDefault();
       const form = event.target;
-      const email = form.email.value.trim();
+      const email = form.email.value.trim().normalize('NFC');
       const password = form.password.value.trim();
 
       if (!email || !password) {

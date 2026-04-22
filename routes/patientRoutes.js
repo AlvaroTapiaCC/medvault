@@ -32,7 +32,11 @@ module.exports = ({ pool, requireAuth }) => {
    * Requiere autenticación y rol admin.
    */
   router.post("/users", requireAuth, requireAdmin, async (req, res) => {
-    const { email, full_name, role, password_plain, is_active } = req.body;
+    const email = String(req.body?.email || "").trim().normalize("NFC");
+    const full_name = req.body?.full_name;
+    const role = req.body?.role;
+    const password_plain = req.body?.password_plain;
+    const is_active = req.body?.is_active;
 
     if (!email || !full_name || !role || !password_plain) {
       return res.status(400).json({ error: "Faltan campos requeridos: email, full_name, role, password_plain" });
@@ -44,7 +48,7 @@ module.exports = ({ pool, requireAuth }) => {
 
     try {
       const existsResult = await pool.query(
-        "SELECT user_id FROM users WHERE email = $1",
+        "SELECT user_id FROM users WHERE lower(email) = lower($1)",
         [email]
       );
 

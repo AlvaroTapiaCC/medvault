@@ -24,7 +24,7 @@
         </div>
         <div class="mb-3">
           <label class="form-label">Email *</label>
-          <input type="email" class="form-control" id="email" required />
+          <input type="text" class="form-control" id="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" required />
         </div>
         <div class="mb-3">
           <label class="form-label">Contraseña *</label>
@@ -75,7 +75,7 @@
 
       const payload = {
         full_name: document.getElementById('full_name').value,
-        email: document.getElementById('email').value,
+        email: document.getElementById('email').value.trim().normalize('NFC'),
         password_plain: document.getElementById('password_plain').value,
         role: document.getElementById('role').value,
         is_active: document.getElementById('is_active').checked

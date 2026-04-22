@@ -7,14 +7,16 @@ module.exports = ({ pool, requireAuth, appBootId, sessionCookieName }) => {
    * Endpoint de login (POST) para validar credenciales.
    */
   router.post("/login", async (req, res) => {
-    const { email, password } = req.body;
+    const email = String(req.body?.email || "").trim().normalize("NFC");
+    const password = String(req.body?.password || "").trim();
+
     if (!email || !password) {
       return res.status(400).json({ result: false, error: "Missing email or password" });
     }
 
     try {
       const result = await pool.query(
-        "SELECT * FROM users WHERE email = $1",
+        "SELECT * FROM users WHERE lower(email) = lower($1)",
         [email]
       );
 
