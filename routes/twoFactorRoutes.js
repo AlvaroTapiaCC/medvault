@@ -1,5 +1,5 @@
 const express = require("express");
-const { totp } = require("otplib");
+const { totp, authenticator } = require("otplib");
 const QRCode = require("qrcode");
 const { auditLog } = require("../logger");
 
@@ -99,7 +99,7 @@ module.exports = ({ pool, requireAuth, appBootId, sessionCookieName }) => {
    */
   router.post("/user/setup-2fa/generate", requireAuth, async (req, res) => {
     try {
-      const secret = totp.generateSecret();
+      const secret = authenticator.generateSecret();
       const email = req.session.email;
       const otpauthUrl = `otpauth://totp/MedVault:${encodeURIComponent(email)}?secret=${secret}&issuer=MedVault`;
       const qrDataUrl = await QRCode.toDataURL(otpauthUrl);

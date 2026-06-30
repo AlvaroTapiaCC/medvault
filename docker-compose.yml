@@ -12,7 +12,7 @@ services:
       DB_PASS: dbpass
       DB_NAME: app_db
       SESSIONS_SECRET: shhh
-      INIT_DB: "false"
+      INIT_DB: "true"
     volumes:
       - ./:/app
       - ./files:/app/files  # Carpeta local "files" se mapea dentro del contenedor
