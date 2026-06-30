@@ -1,64 +1,105 @@
 const express = require("express");
+const bcrypt = require("bcrypt");
+const rateLimit = require("express-rate-limit");
+const { body, validationResult } = require("express-validator");
 
 module.exports = ({ pool, requireAuth, appBootId, sessionCookieName }) => {
   const router = express.Router();
 
-  /**
-   * Endpoint de login (POST) para validar credenciales.
-   */
-  router.post("/login", async (req, res) => {
-    const email = String(req.body?.email || "").trim().normalize("NFC");
-    const password = String(req.body?.password || "").trim();
+  const loginLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { result: false, error: "Demasiados intentos de inicio de sesión. Espera 10 minutos." }
+  });
 
-    if (!email || !password) {
-      return res.status(400).json({ result: false, error: "Missing email or password" });
+  /**
+   * POST /login - Validar credenciales. Si el usuario tiene 2FA activo,
+   * retorna requires2fa: true en lugar de crear la sesión completa.
+   */
+  router.post("/login", loginLimiter, [
+    body('email').isEmail().normalizeEmail().withMessage('Email inválido'),
+    body('password').notEmpty().isLength({ max: 200 }).withMessage('Contraseña requerida')
+  ], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ result: false, error: errors.array()[0].msg });
     }
+
+    const email = req.body.email;
+    const password = req.body.password;
 
     try {
       const result = await pool.query(
-        "SELECT * FROM users WHERE lower(email) = lower($1)",
+        "SELECT * FROM users WHERE lower(email) = lower($1) AND is_active = 1",
         [email]
       );
 
-      if (result.rows.length > 0) {
-        const user = result.rows[0];
-        // TODO: Aquí irá la comparación de contraseña hasheada con bcrypt
-        // Por ahora, validación simple (temporal):
-        if (user.password_plain === password) {
-          req.session.regenerate((regenerateError) => {
-            if (regenerateError) {
-              return res.status(500).json({ result: false, error: "Unable to initialize session" });
-            }
+      if (result.rows.length === 0) {
+        return res.json({ result: false });
+      }
 
-            req.session.userId = user.user_id;
-            req.session.email = user.email;
-            req.session.role = user.role;
-            req.session.appBootId = appBootId;
+      const user = result.rows[0];
 
-            return res.json({ result: true });
-          });
+      let passwordMatch = false;
 
-          return;
+      if (user.password_hash) {
+        passwordMatch = await bcrypt.compare(password, user.password_hash);
+      } else if (user.password_plain) {
+        // Compatibilidad durante migración: hashear y guardar en el momento
+        passwordMatch = (user.password_plain === password);
+        if (passwordMatch) {
+          const newHash = await bcrypt.hash(password, 12);
+          await pool.query(
+            "UPDATE users SET password_hash = $1, password_plain = NULL WHERE user_id = $2",
+            [newHash, user.user_id]
+          );
         }
       }
 
-      return res.json({ result: false });
+      if (!passwordMatch) {
+        return res.json({ result: false });
+      }
+
+      // Si el usuario tiene 2FA activo, iniciar flujo pendiente
+      if (user.totp_secret) {
+        req.session.regenerate((err) => {
+          if (err) return res.status(500).json({ result: false, error: "Error al inicializar sesión" });
+          req.session.pendingTotpUserId = user.user_id;
+          req.session.pendingTotpEmail = user.email;
+          req.session.pendingTotpRole = user.role;
+          req.session.appBootId = appBootId;
+          return res.json({ result: true, requires2fa: true });
+        });
+        return;
+      }
+
+      // Login completo sin 2FA
+      req.session.regenerate((regenerateError) => {
+        if (regenerateError) {
+          return res.status(500).json({ result: false, error: "Error al inicializar sesión" });
+        }
+        req.session.userId = user.user_id;
+        req.session.email = user.email;
+        req.session.role = user.role;
+        req.session.appBootId = appBootId;
+        return res.json({ result: true });
+      });
     } catch (error) {
-      return res.status(500).json({ result: false, error: error.message });
+      console.error("Error en login:", error);
+      return res.status(500).json({ result: false, error: "Error interno del servidor" });
     }
   });
 
   router.get("/login", (req, res) => {
-    res.render("login", { title: "DocLocker Login" });
+    res.render("login", { title: "MedVault Login" });
   });
 
-  /**
-   * Endpoint de logout (GET) para cerrar sesión.
-   */
   router.get("/logout", (req, res) => {
     req.session.destroy((err) => {
       if (err) {
-        return res.status(500).json({ error: "Error closing session" });
+        return res.status(500).json({ error: "Error al cerrar sesión" });
       }
       res.clearCookie(sessionCookieName);
       return res.redirect("/home");
@@ -69,18 +110,20 @@ module.exports = ({ pool, requireAuth, appBootId, sessionCookieName }) => {
     res.render("home", { title: "MedVault Home", user: req.session });
   });
 
-  /**
-   * GET /home - Landing pública de la aplicación.
-   */
   router.get("/home", (req, res) => {
     res.render("home", { title: "MedVault Home", user: req.session });
   });
 
-  /**
-   * GET /user - Vista principal de usuario autenticado.
-   * Requiere autenticación.
-   */
-  router.get("/user", requireAuth, (req, res) => {
+  router.get("/user", requireAuth, async (req, res) => {
+    let has2fa = false;
+    try {
+      const result = await pool.query(
+        "SELECT totp_secret FROM users WHERE user_id = $1",
+        [req.session.userId]
+      );
+      has2fa = result.rows.length > 0 && !!result.rows[0].totp_secret;
+    } catch (_) {}
+
     const allowedViews = req.session.role === "admin"
       ? ["menu", "patients", "users"]
       : ["menu", "patients"];
@@ -90,40 +133,22 @@ module.exports = ({ pool, requireAuth, appBootId, sessionCookieName }) => {
     res.render("user", {
       title: "Inicio de Usuario",
       user: req.session,
-      initialView
+      initialView,
+      has2fa
     });
   });
 
-  /**
-   * GET /user/new - Vista para registrar nuevo usuario (solo admin).
-   * Requiere autenticación.
-   */
   router.get("/user/new", requireAuth, (req, res) => {
     if (req.session.role !== "admin") {
       return res.redirect("/user");
     }
-
-    res.render("user-new", {
-      title: "Registrar Usuario",
-      user: req.session
-    });
+    res.render("user-new", { title: "Registrar Usuario", user: req.session });
   });
 
-  /**
-   * GET /patient/new - Vista para registrar nuevo paciente.
-   * Requiere autenticación.
-   */
   router.get("/patient/new", requireAuth, (req, res) => {
-    res.render("patient-new", {
-      title: "Registrar Paciente",
-      user: req.session
-    });
+    res.render("patient-new", { title: "Registrar Paciente", user: req.session });
   });
 
-  /**
-   * GET /patient/:id/new-record - Vista para registrar nueva atención.
-   * Requiere autenticación.
-   */
   router.get("/patient/:id/new-record", requireAuth, (req, res) => {
     res.render("patient-record-new", {
       title: "Nueva Atención",
@@ -132,10 +157,6 @@ module.exports = ({ pool, requireAuth, appBootId, sessionCookieName }) => {
     });
   });
 
-  /**
-   * GET /patient/:id/new-document - Vista para subir documento asociado.
-   * Requiere autenticación.
-   */
   router.get("/patient/:id/new-document", requireAuth, (req, res) => {
     res.render("patient-document-new", {
       title: "Subir Documento",
@@ -144,10 +165,6 @@ module.exports = ({ pool, requireAuth, appBootId, sessionCookieName }) => {
     });
   });
 
-  /**
-   * GET /patient/:id/document/:docId - Vista de contenido de documento.
-   * Requiere autenticación.
-   */
   router.get("/patient/:id/document/:docId", requireAuth, (req, res) => {
     res.render("document", {
       title: "Contenido de Documento",
@@ -157,10 +174,6 @@ module.exports = ({ pool, requireAuth, appBootId, sessionCookieName }) => {
     });
   });
 
-  /**
-   * GET /patient/:id - Vista de detalle de un paciente.
-   * Requiere autenticación.
-   */
   router.get("/patient/:id", requireAuth, (req, res) => {
     res.render("patient", {
       title: "Detalle de Paciente",
@@ -169,7 +182,6 @@ module.exports = ({ pool, requireAuth, appBootId, sessionCookieName }) => {
     });
   });
 
-  // Compatibilidad: ruta antigua de patient sin id
   router.get("/patient", requireAuth, (req, res) => {
     res.redirect("/user?view=patients");
   });

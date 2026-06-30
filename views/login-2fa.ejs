@@ -1,0 +1,84 @@
+<div id="totp-container"></div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const { html, render } = window.litHtml;
+    const container = document.getElementById('totp-container');
+
+    const template = (message = '', loading = false) => html`
+      <div class="row justify-content-center">
+        <div class="col-md-4">
+          <div class="card mt-5 shadow-sm">
+            <div class="card-header bg-primary text-white">
+              <h5 class="mb-0">🔐 Verificación en dos pasos</h5>
+            </div>
+            <div class="card-body p-4">
+              <p class="text-muted mb-3">
+                Ingresa el código de 6 dígitos de tu aplicación autenticadora
+                (Google Authenticator, Authy, Microsoft Authenticator).
+              </p>
+              <form id="totp-form">
+                <div class="mb-3">
+                  <label for="token" class="form-label fw-semibold">Código de verificación</label>
+                  <input
+                    type="text"
+                    id="token"
+                    name="token"
+                    class="form-control form-control-lg text-center fw-bold"
+                    maxlength="6"
+                    inputmode="numeric"
+                    pattern="[0-9]{6}"
+                    autocomplete="one-time-code"
+                    placeholder="000000"
+                    required
+                  />
+                  <div class="form-text">El código expira cada 30 segundos.</div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100" ?disabled=${loading}>
+                  ${loading ? 'Verificando...' : 'Verificar código'}
+                </button>
+                ${message ? html`<div class="alert alert-danger mt-3 mb-0 py-2">${message}</div>` : ''}
+              </form>
+            </div>
+          </div>
+          <div class="text-center mt-3">
+            <a href="/login" class="text-muted small">← Volver al inicio de sesión</a>
+          </div>
+        </div>
+      </div>
+    `;
+
+    function renderPage(message = '', loading = false) {
+      render(template(message, loading), container);
+    }
+
+    renderPage();
+
+    container.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = e.target.token.value.trim();
+
+      if (!token || token.length !== 6 || !/^\d+$/.test(token)) {
+        renderPage('Ingresa un código de exactamente 6 dígitos.');
+        return;
+      }
+
+      renderPage('', true);
+
+      try {
+        const response = await axios.post('/login/2fa', { token }, {
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.data.result) {
+          try { sessionStorage.setItem('medvault.tab.session.active', '1'); } catch (_) {}
+          window.location.href = '/user';
+        } else {
+          renderPage(response.data.error || 'Código incorrecto. Inténtalo nuevamente.');
+        }
+      } catch (error) {
+        renderPage(error.response?.data?.error || 'Error al verificar. Inténtalo nuevamente.');
+      }
+    });
+  });
+</script>

@@ -1,5 +1,5 @@
 # Usa una imagen base con Node.js
-FROM node:25-bullseye
+FROM node:24-bookworm
 
 # Actualiza el repositorio e instala sshfs y fuse
 RUN apt-get update && apt-get install -y \

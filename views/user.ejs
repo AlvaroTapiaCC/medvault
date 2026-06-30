@@ -5,6 +5,7 @@
     const { html, render } = window.litHtml;
     const appContainer = document.getElementById('app');
     const isAdminUser = '<%= user.role %>' === 'admin';
+    const has2fa = <%- JSON.stringify(has2fa || false) %>;
 
     const state = {
       currentView: '<%= initialView || "menu" %>', // menu, patients, users
@@ -85,6 +86,10 @@
                   <span class="text-muted">Listar, crear y eliminar usuarios</span>
                 </button>
               ` : ''}
+              <a href="/user/setup-2fa" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <span>🔐 Autenticación en dos pasos</span>
+                <span class="badge ${has2fa ? 'bg-success' : 'bg-warning text-dark'}">${has2fa ? 'Activo' : 'No activo'}</span>
+              </a>
             </div>
           </div>
         </div>

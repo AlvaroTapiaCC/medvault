@@ -23,12 +23,18 @@
   },
   "homepage": "https://github.com/ICC4104-202610-Ciberseguridad/project-base#readme",
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "ejs": "^3.1.10",
     "express": "^4.21.2",
     "express-ejs-layouts": "^2.5.1",
+    "express-rate-limit": "^7.5.0",
     "express-session": "^1.19.0",
+    "express-validator": "^7.2.1",
     "multer": "^2.1.0",
+    "otplib": "^12.0.1",
     "pg": "^8.19.0",
-    "session-file-store": "^1.5.0"
+    "qrcode": "^1.5.4",
+    "session-file-store": "^1.5.0",
+    "winston": "^3.17.0"
   }
 }

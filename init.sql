@@ -1,10 +1,11 @@
 -- DELETE TABLES IF THEY EXIST --
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS patients;
-DROP TABLE IF EXISTS clinical_files;
-DROP TABLE IF EXISTS medical_atentions;
-DROP TABLE IF EXISTS documents;
+DROP TABLE IF EXISTS audit_log;
 DROP TABLE IF EXISTS patient_documents;
+DROP TABLE IF EXISTS documents;
+DROP TABLE IF EXISTS medical_atentions;
+DROP TABLE IF EXISTS clinical_files;
+DROP TABLE IF EXISTS patients;
+DROP TABLE IF EXISTS users;
 
 -- CREATE TABLES --
 CREATE TABLE users (
@@ -12,7 +13,9 @@ CREATE TABLE users (
   email VARCHAR(150) NOT NULL UNIQUE,
   full_name VARCHAR(150) NOT NULL,
   role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'doctor', 'patient', 'nurse', 'staff')),
-  password_plain VARCHAR(100) NOT NULL,
+  password_hash VARCHAR(255),
+  password_plain VARCHAR(100),
+  totp_secret VARCHAR(100),
   is_active INTEGER NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -72,6 +75,21 @@ CREATE TABLE patient_documents (
     PRIMARY KEY (patient_id, doc_id),
     FOREIGN KEY (patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE,
     FOREIGN KEY (doc_id) REFERENCES documents(doc_id) ON DELETE CASCADE
+);
+
+CREATE TABLE audit_log (
+    log_id SERIAL PRIMARY KEY,
+    user_id VARCHAR(10),
+    role VARCHAR(20),
+    action VARCHAR(100) NOT NULL,
+    resource_type VARCHAR(50),
+    resource_id VARCHAR(50),
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    status_code INTEGER,
+    method VARCHAR(10),
+    path TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- INSERT INITIAL DATA --

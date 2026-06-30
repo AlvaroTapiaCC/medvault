@@ -143,5 +143,10 @@ sessions/*
 # y tenerlos disponibles al momento de crear la imagen de Docker
 !certs/
 certs/*.key
-!certs/.crt
+!certs/*.crt
 !certs/.keep
+
+# Documents
+entrega3-informe.md
+entrega3-informe.pdf
+entrega4-informe.md

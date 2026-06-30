@@ -1,0 +1,170 @@
+<div id="setup-container"></div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const { html, render } = window.litHtml;
+    const container = document.getElementById('setup-container');
+    let has2fa = <%- JSON.stringify(has2fa) %>;
+
+    const state = {
+      qrDataUrl: null,
+      secret: null,
+      message: '',
+      messageType: '',
+      step: 'initial'
+    };
+
+    const template = (s) => html`
+      <div class="row">
+        <div class="col-md-6">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Autenticación en dos pasos</h2>
+            <a href="/user" class="btn btn-outline-secondary btn-sm">← Volver</a>
+          </div>
+
+          ${s.message ? html`
+            <div class="alert alert-${s.messageType || 'info'} py-2">${s.message}</div>
+          ` : ''}
+
+          ${has2fa && s.step === 'initial' ? html`
+            <div class="alert alert-success">
+              ✅ <strong>2FA está activo</strong> en tu cuenta.
+            </div>
+            <div class="card mb-4">
+              <div class="card-header bg-danger text-white">Desactivar 2FA</div>
+              <div class="card-body">
+                <p class="text-muted small">Ingresa tu código actual para confirmar la desactivación.</p>
+                <form id="disable-form">
+                  <div class="mb-3">
+                    <label class="form-label">Código de verificación</label>
+                    <input type="text" name="token" class="form-control text-center"
+                      maxlength="6" inputmode="numeric" placeholder="000000" required />
+                  </div>
+                  <button type="submit" class="btn btn-danger">Desactivar 2FA</button>
+                </form>
+              </div>
+            </div>
+          ` : ''}
+
+          ${!has2fa && s.step === 'initial' ? html`
+            <div class="alert alert-warning">
+              ⚠️ <strong>2FA no está activado.</strong> Se recomienda activarlo para mayor seguridad.
+            </div>
+            <button @click=${generateQR} class="btn btn-primary">Activar 2FA</button>
+          ` : ''}
+
+          ${s.step === 'scan' ? html`
+            <div class="card mb-4">
+              <div class="card-header bg-primary text-white">Paso 1: Escanea el código QR</div>
+              <div class="card-body text-center">
+                <p>Abre tu app autenticadora y escanea este código QR:</p>
+                <img src="${s.qrDataUrl}" alt="QR Code 2FA" class="img-fluid mb-3" style="max-width:200px;" />
+                <p class="text-muted small">Código manual: <code>${s.secret}</code></p>
+                <button @click=${() => { state.step = 'verify'; renderPage(); }} class="btn btn-primary mt-2">
+                  Ya lo escaneé →
+                </button>
+              </div>
+            </div>
+          ` : ''}
+
+          ${s.step === 'verify' ? html`
+            <div class="card mb-4">
+              <div class="card-header bg-success text-white">Paso 2: Confirma el código</div>
+              <div class="card-body">
+                <p>Ingresa el código de 6 dígitos que muestra tu app:</p>
+                <form id="verify-form">
+                  <div class="mb-3">
+                    <input type="text" name="token" class="form-control form-control-lg text-center"
+                      maxlength="6" inputmode="numeric" placeholder="000000" required />
+                  </div>
+                  <button type="submit" class="btn btn-success me-2">Activar 2FA</button>
+                  <button type="button" @click=${() => { state.step = 'scan'; renderPage(); }}
+                    class="btn btn-outline-secondary">← Volver a escanear</button>
+                </form>
+              </div>
+            </div>
+          ` : ''}
+
+          ${s.step === 'success' ? html`
+            <div class="alert alert-success">
+              ✅ <strong>2FA activado correctamente.</strong>
+              A partir de ahora necesitarás tu código autenticador al iniciar sesión.
+            </div>
+            <a href="/user" class="btn btn-primary">Ir al inicio</a>
+          ` : ''}
+        </div>
+      </div>
+    `;
+
+    function renderPage() {
+      render(template(state), container);
+    }
+
+    async function generateQR() {
+      try {
+        const resp = await axios.post('/user/setup-2fa/generate', {}, {
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (resp.data.success) {
+          state.qrDataUrl = resp.data.qrDataUrl;
+          state.secret = resp.data.secret;
+          state.step = 'scan';
+          state.message = '';
+        } else {
+          state.message = resp.data.error || 'Error al generar QR';
+          state.messageType = 'danger';
+        }
+      } catch (err) {
+        state.message = 'Error al generar QR';
+        state.messageType = 'danger';
+      }
+      renderPage();
+    }
+
+    renderPage();
+
+    container.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = e.target.token?.value?.trim();
+
+      if (e.target.id === 'verify-form') {
+        try {
+          const resp = await axios.post('/user/setup-2fa/verify', { token }, {
+            headers: { 'Content-Type': 'application/json' }
+          });
+          if (resp.data.success) {
+            state.step = 'success';
+            state.message = '';
+            has2fa = true;
+          } else {
+            state.message = resp.data.error || 'Código incorrecto';
+            state.messageType = 'danger';
+          }
+        } catch (err) {
+          state.message = 'Error al verificar código';
+          state.messageType = 'danger';
+        }
+        renderPage();
+      } else if (e.target.id === 'disable-form') {
+        try {
+          const resp = await axios.post('/user/disable-2fa', { token }, {
+            headers: { 'Content-Type': 'application/json' }
+          });
+          if (resp.data.success) {
+            has2fa = false;
+            state.step = 'initial';
+            state.message = '2FA desactivado correctamente.';
+            state.messageType = 'success';
+          } else {
+            state.message = resp.data.error || 'Código incorrecto';
+            state.messageType = 'danger';
+          }
+        } catch (err) {
+          state.message = 'Error al desactivar 2FA';
+          state.messageType = 'danger';
+        }
+        renderPage();
+      }
+    });
+  });
+</script>
