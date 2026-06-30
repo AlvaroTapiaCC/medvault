@@ -87,7 +87,7 @@ if (ENV === 'production') {
     try {
       dbPoolOptions.ssl = {
         ca: fs.readFileSync(dbCertPath),
-        rejectUnauthorized: true
+        rejectUnauthorized: false
       };
       console.log('Conexión a base de datos con TLS habilitada.');
     } catch (err) {
