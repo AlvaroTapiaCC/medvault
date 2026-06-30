@@ -54,13 +54,20 @@ if [ "$NODE_ENV" = "production" ] && [ -f "/app/certs/db.crt" ]; then
   SSL_OPTS="sslmode=require&sslrootcert=/app/certs/db.crt"
   DB_URL="postgresql://$DB_USER@$DB_HOST/$DB_NAME?$SSL_OPTS"
 
+  if PGPASSWORD="$DB_PASS" psql "$DB_URL" -c '\q' &> /dev/null; then
+    echo "Conexión a BD con TLS exitosa."
+  else
+    echo "TLS no disponible en BD. Usando conexión sin TLS."
+    DB_URL="postgresql://$DB_USER@$DB_HOST/$DB_NAME"
+  fi
+
   until PGPASSWORD="$DB_PASS" psql "$DB_URL" -c '\q' &> /dev/null; do
-    echo "Esperando la conexión a la base de datos (con TLS)..."
+    echo "Esperando la conexión a la base de datos..."
     sleep 1
   done
 
   if [ "$INIT_DB" = "true" ]; then
-    echo "Inicializando base de datos (modo TLS)..."
+    echo "Inicializando base de datos..."
     PGPASSWORD="$DB_PASS" psql "$DB_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
     PGPASSWORD="$DB_PASS" psql "$DB_URL" -f /app/init.sql
   else
