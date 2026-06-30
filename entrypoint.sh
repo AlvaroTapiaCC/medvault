@@ -51,7 +51,7 @@ fi
 
 # Determinar opciones SSL para psql según el entorno
 if [ "$NODE_ENV" = "production" ] && [ -f "/app/certs/db.crt" ]; then
-  SSL_OPTS="sslmode=verify-ca&sslrootcert=/app/certs/db.crt"
+  SSL_OPTS="sslmode=require&sslrootcert=/app/certs/db.crt"
   DB_URL="postgresql://$DB_USER@$DB_HOST/$DB_NAME?$SSL_OPTS"
 
   until PGPASSWORD="$DB_PASS" psql "$DB_URL" -c '\q' &> /dev/null; do
