@@ -188,8 +188,8 @@ if (ENV === 'production' && !process.env.SESSIONS_SECRET) {
 }
 
 if (ENV === 'production') {
-  const certPath = process.env.SSL_CERT_PATH || '/app/certs/4104.grupo19.crt';
-  const keyPath = process.env.SSL_KEY_PATH || process.env.CERTIFICATE_PRIVATE_KEY_PATH || '/app/certs/4104.grupo19.key';
+  const certPath = process.env.SSL_CERT_PATH || '/app/certs/grupo19.crt';
+  const keyPath = process.env.SSL_KEY_PATH || process.env.CERTIFICATE_PRIVATE_KEY_PATH || '/app/certs/grupo19.key';
 
   if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
     console.error("Certificado TLS no encontrado. Iniciando en HTTP/1.1 de todas formas.");
