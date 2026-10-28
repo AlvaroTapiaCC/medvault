@@ -42,7 +42,9 @@ if [ "$NODE_ENV" = "production" ]; then
 
 else
   echo "Modo development: utilizando sistema de archivos local en /app/files"
-  mkdir -p /app/files
+  mkdir -p /app/files/documents
+  # Copiar documentos de ejemplo sin sobrescribir los existentes
+  cp -n /app/seed/documents/* /app/files/documents/ 2>/dev/null || true
 fi
 
 # ============================================================================

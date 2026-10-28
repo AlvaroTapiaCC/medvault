@@ -1,0 +1,4 @@
+Documento de demostración - MedVault
+Tipo: derivación
+Paciente: P000003
+Se deriva a cardiología para evaluación. Datos ficticios.

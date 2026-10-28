@@ -18,7 +18,7 @@ async function migratePasswords() {
     if (fs.existsSync(certPath)) {
       dbOptions.ssl = {
         ca: fs.readFileSync(certPath),
-        rejectUnauthorized: false
+        rejectUnauthorized: true
       };
     }
   }

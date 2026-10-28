@@ -1,0 +1,6 @@
+user_id,email,full_name,role,password_plain,is_active
+U0001,admin@medvault.test,Ana Admin,admin,Admin123!,1
+U0002,doctor@medvault.test,Diego Doctor,doctor,Doctor123!,1
+U0003,nurse@medvault.test,Nora Enfermera,nurse,Nurse123!,1
+U0004,staff@medvault.test,Sergio Staff,staff,Staff123!,1
+U0005,patient@medvault.test,Pablo Paciente,patient,Patient123!,1

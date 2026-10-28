@@ -1,0 +1,5 @@
+patient_id,national_id,full_name,sex,birth_date,phone,address,insurance,notes
+P000001,DEMO-0000001-1,Pablo Paciente,M,1985-04-12,+56 9 0000 0001,"Calle Ficticia 123, Santiago",FONASA,Paciente de demostración
+P000002,DEMO-0000002-2,Valentina Ejemplo,F,1992-09-30,+56 9 0000 0002,"Avenida Demo 456, Valparaíso",ISAPRE,
+P000003,DEMO-0000003-3,Tomás Prueba,M,1970-01-15,+56 9 0000 0003,"Pasaje Inventado 789, Concepción",PARTICULAR,Alergia a penicilina (dato ficticio)
+P000004,DEMO-0000004-4,Camila Muestra,F,2001-06-21,,"Calle Sin Número, Temuco",FONASA,

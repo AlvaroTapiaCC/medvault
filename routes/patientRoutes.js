@@ -111,7 +111,7 @@ module.exports = ({ pool, requireAuth, requireRole }) => {
   // Roles permitidos: admin, doctor, nurse, staff (lectura); admin, doctor (escritura)
   // ============================================================================
 
-  router.get("/patients", requireAuth, auditLog("list", "Patient"), async (req, res) => {
+  router.get("/patients", requireRole("admin", "doctor", "nurse", "staff"), auditLog("list", "Patient"), async (req, res) => {
     try {
       const result = await pool.query(
         "SELECT patient_id, national_id, full_name, sex, birth_date, phone, address, insurance, notes FROM patients ORDER BY full_name ASC"
@@ -123,7 +123,7 @@ module.exports = ({ pool, requireAuth, requireRole }) => {
     }
   });
 
-  router.get("/patients/:id", requireAuth, auditLog("read", "Patient"), async (req, res) => {
+  router.get("/patients/:id", requireRole("admin", "doctor", "nurse", "staff"), auditLog("read", "Patient"), async (req, res) => {
     try {
       const result = await pool.query(
         `SELECT patient_id, national_id, full_name, sex, birth_date, phone, address, insurance, notes

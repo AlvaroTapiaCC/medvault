@@ -1,27 +1,21 @@
 {
-  "name": "project-base",
+  "name": "medvault",
   "version": "1.0.0",
-  "description": "Proyecto base para Fundamentos de Ciberseguridad.",
+  "description": "Secure electronic health record web app (Node.js, Express, PostgreSQL, 2FA).",
   "main": "server.js",
-  "directories": {
-    "doc": "docs"
-  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ICC4104-202610-Ciberseguridad/project-base.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "security",
+    "2fa",
+    "express",
+    "postgresql",
+    "healthcare"
+  ],
+  "author": "Alvaro Tapia",
+  "license": "MIT",
   "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/ICC4104-202610-Ciberseguridad/project-base/issues"
-  },
-  "homepage": "https://github.com/ICC4104-202610-Ciberseguridad/project-base#readme",
   "dependencies": {
     "bcrypt": "^5.1.1",
     "ejs": "^3.1.10",

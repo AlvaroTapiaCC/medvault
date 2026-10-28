@@ -1,0 +1,4 @@
+Documento de demostración - MedVault
+Tipo: examen de laboratorio
+Paciente: P000001
+Hemograma dentro de rangos normales. Datos ficticios.

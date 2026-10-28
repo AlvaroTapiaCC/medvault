@@ -1,0 +1,4 @@
+Documento de demostración - MedVault
+Tipo: receta
+Paciente: P000002
+Paracetamol 500 mg cada 8 horas por 3 días. Datos ficticios.

@@ -1,0 +1,4 @@
+doc_id,doc_type,doc_date,title,patient_id,filename,sha256
+DOC000001,lab,2026-03-02,Hemograma completo,P000001,DOC000001.txt,e7851721543ed17a597c8806475197c9d45684b7668a3fb13b84e7ad456a1b50
+DOC000002,prescription,2026-03-10,Receta médica,P000002,DOC000002.txt,692fcfcda4deee505283d26773e7cbf3f779aa2e8c36cbe7ee47b76bc4f6b593
+DOC000003,referral,2026-04-05,Derivación a cardiología,P000003,DOC000003.txt,01b8c2cb0e8129611d64aa71195ac342a7942574e72ff604b011b6865efaf2a1
